@@ -1,4 +1,4 @@
-# Pose game
+# Nose Pose Tile Reveal
 UAL: Creative Computing Institute
 
 By me, Stuart Leitch!
