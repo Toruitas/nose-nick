@@ -1,11 +1,9 @@
 import {drawKeyPoints, drawSkeleton} from './utils'
 import React, {Component} from 'react';
-// import { connect } from 'react-redux';
-// import { selectThing } from './gameSlice';
 import styles from "./Game.module.css";
 import * as tf from '@tensorflow/tfjs';
 import * as posenet from '@tensorflow-models/posenet';
-import { connect } from 'react-redux';
+import Rect from "./rectangle";
 // import nickcage from "nickcage.jpg";
 
 
@@ -21,7 +19,7 @@ export class Game extends Component{
         videoHeight: 400, 
         flipHorizontal: true,
         algorithm: 'single-pose',
-        showVideo: true,
+        showVideo: false,
         showSkeleton: true,
         showPoints: true,
         minPoseConfidence: 0.1,
@@ -41,6 +39,13 @@ export class Game extends Component{
         };
         this.canvas = React.createRef();
         this.video = React.createRef();
+        this.rectsPerRow = 6;
+        this.rows = 4;
+        this.untouchedRects = [];
+        this.touchedRects = [];
+        this.rectToTouch = "";
+        this.startingTick = 0;
+        this.timeLimit = 10000;
         // this.updateWglWithContext = this.updateWglWithContext.bind(this);
     }
 
@@ -62,7 +67,7 @@ export class Game extends Component{
                 this.setState({loading:false})
             }, 200)
         }
-        this.detectPose()
+        this.detectPose();
 
         // setInterval( async () => {
         //     await this.detectExpressionInRealTime(video);
@@ -108,12 +113,85 @@ export class Game extends Component{
         const {videoWidth, videoHeight} = this.props;
         const canvas = this.canvas.current;
         const canvasContext = canvas.getContext('2d');
+        this.context = canvasContext;
 
         canvas.width = videoWidth;
         canvas.height = videoHeight;
 
+        // Draw the initial rectangles.
+        // Put them into lists.
+        for (let row = 0; row < this.rows; row++){
+            for (let square = 0; square < this.rectsPerRow; square++){
+                let x1 = square * (videoWidth / this.rectsPerRow);
+                let x2 = x1 + (videoWidth / this.rectsPerRow);
+                let y1 = row * (videoHeight / this.rows);
+                let y2 = y1 + (videoHeight / this.rows);
+                let newSquare = new Rect(x1, y1, x2, y2, canvasContext);
+                this.untouchedRects.push(newSquare);
+            }
+        }
+
+        this.chooseNewSquare();
+        this.redrawSquares();
         this.poseDetectionFrame(canvasContext);
     }
+
+    redrawSquares(){
+        // Just redraws the squares. No fancy shit.
+        // draw untouched
+        this.untouchedRects.forEach(rect => rect.drawSelf());
+        // draw to be touched
+        this.rectToTouch.drawSelf();
+        // no need to re-draw the touched ones. They're supposed to be transparent anyways!
+    }
+
+
+    drawNose(x,y, context){
+        // Draws a circle where the nose is.
+        context.beginPath();
+        context.fillStyle = "rgb(0,273, 238, 0.75)";
+        context.arc(x, y, 10, 0, 2 * Math.PI);
+        context.fill();
+    }
+
+
+    checkExceedTimer(){
+        // didn't get there in time
+        const d = new Date();
+        if (d.getTime() - this.startingTick > this.timeLimit){
+            this.rectToTouch.revert();
+            // exceeded, pick a new one
+            this.chooseNewSquare();
+            return true;
+        }
+        return false;
+    }
+
+
+    touchSquare(x,y){
+        // did the player touch their nose to the square in time?
+        if (this.rectToTouch.isWithin(x,y)){
+            const index = this.untouchedRects.indexOf(this.rectToTouch);
+            if (index > -1) {
+                this.rectToTouch.reveal();
+                this.touchedRects.push(this.untouchedRects.splice(index, 1));
+
+                this.chooseNewSquare();
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    chooseNewSquare(){
+        // Chooses a new square from the untouched
+        this.rectToTouch = this.untouchedRects[Math.floor(Math.random() * (this.untouchedRects.length))];
+        this.rectToTouch.touchMeNow();
+        // resets the game timer
+        this.startingTick = new Date().getTime();
+    }
+
 
     poseDetectionFrame(canvasContext){
         const {
@@ -179,27 +257,39 @@ export class Game extends Component{
                 canvasContext.restore();
             }
 
-            poses.forEach(({score, keypoints}) => {
-                if (score >= minPoseConfidence){
-                    if (showPoints){
-                        drawKeyPoints(
-                            keypoints,
-                            minPartConfidence,
-                            skeletonColor,
-                            canvasContext
-                        )
+            this.redrawSquares();
+
+            if(!this.checkExceedTimer()){
+                poses.forEach(({score, keypoints}) => {
+                    if (score >= minPoseConfidence){
+                        let x = keypoints[0].position.x;
+                        let y = keypoints[0].position.y;
+                        this.drawNose(x, y, canvasContext);
+                        this.touchSquare(x, y);
+                        // keypoints[0].position.x
+                        // keypoints[0].position.y
+                        // if (showPoints){
+                        //     drawKeyPoints(
+                        //         keypoints,
+                        //         minPartConfidence,
+                        //         skeletonColor,
+                        //         canvasContext
+                        //     )
+                        // }
+                        // if (showSkeleton){
+                        //     drawSkeleton(
+                        //         keypoints,
+                        //         minPartConfidence,
+                        //         skeletonColor,
+                        //         skeletonLineWidth,
+                        //         canvasContext
+                        //     )
+                        // }
                     }
-                    if (showSkeleton){
-                        drawSkeleton(
-                            keypoints,
-                            minPartConfidence,
-                            skeletonColor,
-                            skeletonLineWidth,
-                            canvasContext
-                        )
-                    }
-                }
-            })
+                })
+            }
+
+            
             requestAnimationFrame(findPoseDetectionFrame);
         }
         findPoseDetectionFrame();
@@ -214,15 +304,3 @@ export class Game extends Component{
         )
     }
 }
-
-
-// const mapStateToProps = state => {
-//     return {
-//         tool: selectSelectedTool(state),
-//         vertices: selectVertices(state),
-//         color1: selectColor1(state),
-//         clear: selectClearCanvas(state)
-//     }
-// };
-
-// export default connect(mapStateToProps, null)(Canvas);
