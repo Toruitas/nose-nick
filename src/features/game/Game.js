@@ -35,7 +35,8 @@ export class Game extends Component{
     constructor(props){
         super(props, Game.defaultProps);
         this.state = {
-            loading:true
+            loading:true,
+            firstDrawn:false
         };
         this.canvas = React.createRef();
         this.video = React.createRef();
@@ -45,7 +46,8 @@ export class Game extends Component{
         this.touchedRects = [];
         this.rectToTouch = "";
         this.startingTick = 0;
-        this.timeLimit = 10000;
+        this.timeLimit = 2000;
+        this.noseLastXY = {x:0, y:0};
         // this.updateWglWithContext = this.updateWglWithContext.bind(this);
     }
 
@@ -133,6 +135,8 @@ export class Game extends Component{
 
         this.chooseNewSquare();
         this.redrawSquares();
+        // Now that the canvas is drawn, can change the background image to the div
+        this.setState({firstDrawn:true});
         this.poseDetectionFrame(canvasContext);
     }
 
@@ -145,12 +149,21 @@ export class Game extends Component{
         // no need to re-draw the touched ones. They're supposed to be transparent anyways!
     }
 
+    lerp(a, b, n) {
+        return (1 - n) * a + n * b;
+    }
+
 
     drawNose(x,y, context){
         // Draws a circle where the nose is.
+        let newX = x;
+        let newY = y;
+        let noseX = this.lerp(this.noseLastXY.x, newX, 0.8);
+        let noseY = this.lerp(this.noseLastXY.y, newY, 0.8);
+        this.noseLastXY = {x: noseX, y:noseY};
         context.beginPath();
         context.fillStyle = "rgb(0,273, 238, 0.75)";
-        context.arc(x, y, 10, 0, 2 * Math.PI);
+        context.arc(noseX, noseY, 10, 0, 2 * Math.PI);
         context.fill();
     }
 
@@ -297,7 +310,7 @@ export class Game extends Component{
 
     render(){
         return(
-            <div id={styles.background}>
+            <div id={styles.background} className={this.state.firstDrawn ? styles.backgroundLoaded :null}>
                 <canvas id="canvas" ref={this.canvas} width="600" height="400"></canvas>
                 <video id="videoNoShow" ref={this.video} playsInline style={{display: "none"}}></video>
             </div>

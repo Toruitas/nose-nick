@@ -17,11 +17,11 @@ The game itself is kind of shit. Squares will light up and you're supposed to to
 
 ~~Step 4: Get coordinates of nose~~
 
-Step 5: Draw nose position shape on the canvas
+~Step 5: Draw nose position shape on the canvas~
 
-Step 6: Draw square shapes 
+~Step 6: Draw square shapes~
 
-Step 7: If "touch" a square, it fades away and you see... the man behind the mask
+~Step 7: If "touch" a square, it goes away and you see... the man behind the mask~
 
 
 References:
