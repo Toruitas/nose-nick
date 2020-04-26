@@ -36,7 +36,8 @@ export class Game extends Component{
         super(props, Game.defaultProps);
         this.state = {
             loading:true,
-            firstDrawn:false
+            firstDrawn:false,
+            won:false
         };
         this.canvas = React.createRef();
         this.video = React.createRef();
@@ -147,6 +148,7 @@ export class Game extends Component{
         // draw to be touched
         this.rectToTouch.drawSelf();
         // no need to re-draw the touched ones. They're supposed to be transparent anyways!
+        
     }
 
     lerp(a, b, n) {
@@ -169,15 +171,17 @@ export class Game extends Component{
 
 
     checkExceedTimer(){
-        // didn't get there in time
-        const d = new Date();
-        if (d.getTime() - this.startingTick > this.timeLimit){
-            this.rectToTouch.revert();
-            // exceeded, pick a new one
-            this.chooseNewSquare();
-            return true;
+        if (!this.state.won){
+            // didn't get there in time
+            const d = new Date();
+            if (d.getTime() - this.startingTick > this.timeLimit){
+                this.rectToTouch.revert();
+                // exceeded, pick a new one
+                this.chooseNewSquare();
+                return true;
+            }
+            return false;
         }
-        return false;
     }
 
 
@@ -188,8 +192,13 @@ export class Game extends Component{
             if (index > -1) {
                 this.rectToTouch.reveal();
                 this.touchedRects.push(this.untouchedRects.splice(index, 1));
-
-                this.chooseNewSquare();
+                if (this.untouchedRects.length <= 0){
+                    this.setState({
+                        won:true
+                    })
+                } else{
+                    this.chooseNewSquare();
+                }
                 return true;
             }
         }
@@ -202,7 +211,7 @@ export class Game extends Component{
         this.rectToTouch = this.untouchedRects[Math.floor(Math.random() * (this.untouchedRects.length))];
         this.rectToTouch.touchMeNow();
         // resets the game timer
-        this.startingTick = new Date().getTime();
+        this.startingTick = new Date().getTime();        
     }
 
 
@@ -278,7 +287,10 @@ export class Game extends Component{
                         let x = keypoints[0].position.x;
                         let y = keypoints[0].position.y;
                         this.drawNose(x, y, canvasContext);
-                        this.touchSquare(x, y);
+                        if (!this.state.won){
+                            this.touchSquare(x, y);
+                        }
+                        
                         // keypoints[0].position.x
                         // keypoints[0].position.y
                         // if (showPoints){
@@ -313,6 +325,7 @@ export class Game extends Component{
             <div id={styles.background} className={this.state.firstDrawn ? styles.backgroundLoaded :null}>
                 <canvas id="canvas" ref={this.canvas} width="600" height="400"></canvas>
                 <video id="videoNoShow" ref={this.video} playsInline style={{display: "none"}}></video>
+                { this.state.won ? <div className="quote">I am not a demon. I am a lizard, a shark, a heat-seeking panther. I want to be Bob Denver on acid playing the accordion.  -- Nicolas Cage</div> : null}
             </div>
         )
     }
